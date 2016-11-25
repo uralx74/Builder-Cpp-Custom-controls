@@ -28,7 +28,7 @@ namespace Editalt
     void __fastcall PACKAGE Register()
     {
          TComponentClass classes[1] = {__classid(TEditAlt)};
-         RegisterComponents("Alt", classes, 0);
+         RegisterComponents("AltCtrl", classes, 0);
     }
 }
 //---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ int __fastcall TEditAlt::GetValue()
     return StrToInt(Text);
 }
 
-__fastcall TEditAlt::SetValue(int value)
+void __fastcall TEditAlt::SetValue(int value)
 {
     Text = IntToStr(value);
 }

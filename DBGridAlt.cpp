@@ -18,27 +18,160 @@ namespace Dbgridalt
     void __fastcall PACKAGE Register()
     {
          TComponentClass classes[1] = {__classid(TDBGridAlt)};
-         RegisterComponents("Alt", classes, 0);
+         RegisterComponents("AltCtrl", classes, 0);
     }
 }
+
+
+/*
+ TDBGridAltFilterItem class
+*/
+
+__fastcall TDBGridAltFilterItem::TDBGridAltFilterItem() :
+    _active(true),
+    _text(""),
+    _paramValue(""),
+    _textResult(""),
+    _empty(true)
+{
+    //TReplaceFlags _replaceFlags = TReplaceFlags() << rfReplaceAll << rfIgnoreCase;
+    _replaceFlags = TReplaceFlags() << rfReplaceAll;
+}
+
+TDBGridAltFilterItem::~TDBGridAltFilterItem()
+{
+}
+
+void TDBGridAltFilterItem::setActive(bool active)
+{
+    _active = active;
+}
+
+
+String TDBGridAltFilterItem::getText() const
+{
+    return _textResult;
+}
+
+void TDBGridAltFilterItem::setParamValue(const String& paramValue)
+{
+    _paramValue = paramValue;
+    _empty = (_paramValue == "" || _text == "");
+    _textResult = StringReplace(_text, ":param", _paramValue, _replaceFlags);
+}
+
+void TDBGridAltFilterItem::setText(const String& text)
+{
+    _text = text;
+
+    // чтобы задать первоначальное значение _textResult
+    //setParamValue("");
+}
+
+/*
+ TDBGridAltFilter class
+*/
+
+
+/* Добавляет элемент в фильтр
+*/
+void TDBGridAltFilter::add(const String& filterName, const String& filterStr)
+{
+    (*_items)[filterName].setText(filterStr);
+}
+
+/* Удаляет элемент фильтра по имени элемента
+*/
+void TDBGridAltFilter::remove(const String& filterName)
+{
+    _items->erase(filterName);
+}
+
+/* Очищает фильтр
+*/
+void TDBGridAltFilter::clear()
+{
+    _items->clear();
+}
+
+void TDBGridAltFilter::setActive(const String& filterName, bool active)
+{
+    (*_items)[filterName].setActive(active);
+}
+
+void TDBGridAltFilter::setValue(const String& filterName, const String& value)
+{
+    /*TDBGridAltFilterItem *item;
+    std::pair<const AnsiString, TDBGridAltFilterItem> *it = _items->find(filterName);
+    if ( it != _items.end() )
+    {
+        item->setParamValue(value);
+    } */
+    (*_items)[filterName].setParamValue(value);
+}
+
+
+//---------------------------------------------------------------------------
+//
+__fastcall TDBGridAltFilter::TDBGridAltFilter()
+{
+    _items = new std::map<String, TDBGridAltFilterItem>;
+}
+
+
+//---------------------------------------------------------------------------
+//
+__fastcall TDBGridAltFilter::~TDBGridAltFilter()
+{
+    _items->clear();
+    delete _items;
+}
+
+//------------------------------------------------------------------------------
+// Объединяет вектор подстрок в одну строку используя соединитель
+String TDBGridAltFilter::getFilterString(const String &glue) const
+{
+	String a = "";
+
+    for (std::map<String, TDBGridAltFilterItem>::iterator it = _items->begin(); it != _items->end(); it++)
+    {
+        if ( it->second.isActive() && !it->second.isEmpty())   // если фильтр активен
+        {
+            a += it->second.getText() + glue;
+        }
+    }
+
+    a = a.SubString(1, a.Length() - glue.Length());
+
+ 	return a;
+}
+
+/*
+ TDBGridAlt class
+*/
 
 //---------------------------------------------------------------------------
 //
 __fastcall TDBGridAlt::TDBGridAlt(TComponent* Owner)
-    : TDBGrid(Owner)
+    : TDBGrid(Owner),
+    FHideKeyField(true),
+    FColumnAutosize(true),
+    FFiltered(false)
+
+    //FFiltered(false)
 {
-    FOddRowColor = RGB(250,250,250);
+    FOddRowColor = static_cast<TColor>(RGB(250,250,250));
     FEvenRowColor = clWhite;
-    FSortColumnColor=RGB(255,240,210);
+    FSortColumnColor = static_cast<TColor>(RGB(255,240,210));
     Options = TDBGridOptions() << dgRowSelect << dgTitles << dgRowLines << dgColLines << dgColumnResize << dgEditing << dgConfirmDelete << dgCancelOnExit << dgIndicator << dgTabs;
     FCheckedFont = new TFont();
     FCheckedFont->Color = clRed;
     FCheckedFont->Style = TFontStyles();
-    FHideKeyField = true;
-    //FKeyFieldIndex = 1;
-    FColumnAutosize = true;
+    //FHideKeyField = true;
+    //FColumnAutosize = true;
 
-    Filter = new TDBGridAltFilter();
+    //FKeyFieldIndex = 1;
+    //Filter = new TDBGridAltFilter();
 }
 
 //---------------------------------------------------------------------------
@@ -49,9 +182,8 @@ __fastcall TDBGridAlt::~TDBGridAlt()
     ItemsFlg.clear();
 }
 
-
 //---------------------------------------------------------------------------
-// Событие при открытии DataSet
+// Событие при открытии и закрытии DataSet
 void __fastcall TDBGridAlt::LinkActive(bool Value)
 {
     //ShowMessage( "Link Active");
@@ -66,20 +198,29 @@ void __fastcall TDBGridAlt::LinkActive(bool Value)
     if (Value) {
 
         ItemsFlg.reserve(DataSource->DataSet->RecordCount+1); // +1 - жертвуем 1 байтом так как нумерация rownum с 1
-        for(int i=0; i <= DataSource->DataSet->RecordCount; i++) {
+        for(int i=0; i <= DataSource->DataSet->RecordCount; i++) // Заполняем false - все пункты по умолчанию не выделены
+        {
             ItemsFlg.push_back(false);
             //DataSource->DataSet->Fields->FieldByNumber(1)->Tag = i;
             //DataSource->DataSet->Next();
         }
+
         DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->Visible = !FHideKeyField;
         if (FColumnAutosize)
-            SetAutosize();
+        {
+            setAutosize();
+        }
+
+        DataSource->DataSet->Filtered = FFiltered;
 
         //Refresh();
         //ShowMessage( IntToStr(DataSource->DataSet->RecordCount) + " + " + IntToStr(ItemsFlg.size()) + " + " + IntToStr(ItemsFlg[0]));
-    } else {
+    } else
+    {
         for (int i = 0; i < Columns->Count; i++)
+        {
             Columns->Items[i]->Title->Font->Style = Columns->Items[i]->Title->Font->Style >> fsBold;
+        }
     }
 
     TDBGrid::LinkActive(Value);
@@ -96,16 +237,26 @@ void __fastcall TDBGridAlt::Loaded()
 // Двойной щелчок на строке
 void __fastcall TDBGridAlt::DblClick()
 {
+    if (DataSource == NULL || DataSource->DataSet == NULL)
+    {
+        return;
+    }
+
     TPoint pt;
     pt = Mouse->CursorPos;
     pt = ScreenToClient (pt);
 
     int RowHeight = RowHeights[0];
 
-    if (pt.y > RowHeight ) {    // Если двойной щелчек не по заголовку
-        InvertCheck(DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger);
+
+
+    if (pt.y > RowHeight  )     // Если двойной щелчек не по заголовку
+    {
+        invertCheck(DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger);
         Refresh();
-    } else {     // Если двойной щелчек по заголовку
+    }
+    else      // Если двойной щелчек по заголовку
+    {
     }
 }
 
@@ -117,13 +268,13 @@ void __fastcall TDBGridAlt::KeyDown(Word &Key, Classes::TShiftState Shift)
 	switch (Key) {
 	case VK_SPACE:
     	// Помечаем выделенную строку
-        InvertCheck(DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger);
+        invertCheck(DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger);
     	//DblClick();
         break;
     case VK_INSERT:
     	// Помечаем выделенную строку
     	//DblClick();
-        InvertCheck(DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger);
+        invertCheck(DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger);
         // Перемещаем курсор на следующую строку в Гриде
         TDBGrid::KeyDown(VK_DOWN, Shift);
         //DataSource->DataSet->Next();
@@ -151,20 +302,29 @@ void __fastcall TDBGridAlt::TitleClick(TColumn *Column)
 
     // Сортируем по выбранному полю + по полю Num
     // Выделение заголовка
-
-    if (SortColumnIndex == Column->Index) {
-        if (SortType == 2) {
+    if (DataSource == NULL || DataSource->DataSet == NULL)
+    {
+        return;
+    }
+    
+    if (SortColumnIndex == Column->Index)
+    {
+        if (SortType == 2)
+        {
             SortType = 0;
             SortColumnIndex = -1;
             Column->Title->Font->Style = Column->Title->Font->Style >> fsBold;
         }
-        else {
+        else
+        {
             SortType++;
             //Column->Title->Font->Style = Column->Title->Font->Style << fsBold;
         }
     } else {
         if (SortColumnIndex >= 0)
+        {
             Columns->Items[SortColumnIndex]->Title->Font->Style = Columns->Items[SortColumnIndex]->Title->Font->Style >> fsBold;
+        }
         Column->Title->Font->Style = Column->Title->Font->Style << fsBold;
         SortColumnIndex = Column->Index;
         SortType = 1;
@@ -172,7 +332,8 @@ void __fastcall TDBGridAlt::TitleClick(TColumn *Column)
 
     AnsiString sSort;
 
-    switch(SortType) {
+    switch(SortType)
+    {
     case 0:
         ((TOraQuery*)DataSource->DataSet)->IndexFieldNames = DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->DisplayName;//Column->FieldName;
         break;
@@ -197,25 +358,33 @@ void __fastcall TDBGridAlt::DrawColumnCell(const TRect &Rect, int DataCol, TColu
     Canvas->Lock();    // Блокирум канвас перед рисованием
 
 	// Расскрашиваем нечетные строки
-	if ( (DataSource->DataSet->RecNo % 2 ) == 0) {
+	if ( (DataSource->DataSet->RecNo % 2 ) == 0)
+    {
     	Canvas->Brush->Color = FOddRowColor;
-    } else {
+    }
+    else
+    {
     	Canvas->Brush->Color = FEvenRowColor;
     }
 
     // Расскрашиваем столбец, по которому проведена сортировка
-    if (SortType != 0 && Column->Index == SortColumnIndex) {
+    if (SortType != 0 && Column->Index == SortColumnIndex)
+    {
         Canvas->Brush->Color = FSortColumnColor;
     }
 
     // Оставляем выделение текущей позиции курсора
-	if  (State.Contains(gdSelected)) {
+	if  (State.Contains(gdSelected))
+    {
         Canvas->Brush->Color= clHighlight;
         Canvas->Font->Color = clHighlightText;
 	}
 
+    //DataSource->DataSet->RecNo
     // Выделяем цветом помеченные строки
-    if (ItemsFlg[DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger]) {
+    if (ItemsFlg[DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger])
+    if (ItemsFlg[DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger])
+    {
         Canvas->Font = FCheckedFont;
     }
     Canvas->Unlock();    // Освобождаем канвас
@@ -225,18 +394,20 @@ void __fastcall TDBGridAlt::DrawColumnCell(const TRect &Rect, int DataCol, TColu
 
 //---------------------------------------------------------------------------
 // Параметр Спрятать ключевое поле
-void __fastcall TDBGridAlt::SetVisibleKeyField(bool VisibleFlg)
+void __fastcall TDBGridAlt::setVisibleKeyField(bool VisibleFlg)
 {
     FHideKeyField = VisibleFlg;
 }
 
 //---------------------------------------------------------------------------
 //
-void __fastcall TDBGridAlt::SetColumnAutosize(bool ColumnAutosizeFlg)
+void __fastcall TDBGridAlt::setColumnAutosize(bool ColumnAutosizeFlg)
 {
     FColumnAutosize = ColumnAutosizeFlg;
     if (Columns->Count > 0 && ColumnAutosizeFlg)
-        SetAutosize();
+    {
+        setAutosize();
+    }
 }
 
 /*//---------------------------------------------------------------------------
@@ -255,32 +426,81 @@ void __fastcall TDBGridAlt::SetKeyFieldName(AnsiString Name)
 
 //---------------------------------------------------------------------------
 // Проверить, является ли строка отмеченой
-bool __fastcall TDBGridAlt::IsChecked(int RowNum)
+bool __fastcall TDBGridAlt::isChecked(int RowNum)
 {
     return ItemsFlg[RowNum];
 }
 
 //---------------------------------------------------------------------------
 // Пометить все строки
-void __fastcall TDBGridAlt::CheckAll()
+void __fastcall TDBGridAlt::checkAll()
 {
-    for(int i=1; i < ItemsFlg.size(); i++) {
-        ItemsFlg[i] = true;
+    for(std::vector<bool>::iterator it = ItemsFlg.begin(); it != ItemsFlg.end(); ++it)
+    {
+        (*it) = true;
     }
     Refresh();
+
     if (FOnChangeCheck != NULL)
+    {
         FOnChangeCheck(this);
+    }
+}
+//---------------------------------------------------------------------------
+// Снять пометку со всех строк
+void __fastcall TDBGridAlt::uncheckAll()
+{
+    for(std::vector<bool>::iterator it = ItemsFlg.begin(); it != ItemsFlg.end(); ++it)
+    {
+        (*it) = false;
+    }
+
+    Refresh();
+    if (FOnChangeCheck != NULL)
+    {
+        FOnChangeCheck(this);
+    }
+}
+
+//---------------------------------------------------------------------------
+// Инверсия выделения пункта
+void __fastcall TDBGridAlt::invertCheck(int Index)
+{
+    ItemsFlg[Index] = !ItemsFlg[Index];
+    if (FOnChangeCheck != NULL)
+    {
+        FOnChangeCheck(this);
+    }
+}
+
+//---------------------------------------------------------------------------
+// Подсчет количества отмеченных строк
+int __fastcall TDBGridAlt::getCheckedCount()
+{
+    int Count = 0;
+    for(std::vector<bool>::size_type i = 1; i < ItemsFlg.size(); i++)
+    {
+        if (ItemsFlg[i])
+        {
+            Count++;
+        }
+    }
+    return Count;
 }
 
 //---------------------------------------------------------------------------
 // Пометить все строки
-void __fastcall TDBGridAlt::CheckFiltered()
+// ?????????????????????????????????????????????????????????????????????????????????
+// ?????????????????????????????????????????????????????????????????????????????????
+// ?????????????????????????????????????????????????????????????????????????????????
+void __fastcall TDBGridAlt::checkFiltered()
 {
     int N = DataSource->DataSet->RecNo;
     DataSource->DataSet->DisableControls();
 
     DataSource->DataSet->First();
-    while(!DataSource->DataSet->Eof) {
+    while(!DataSource->DataSet->Eof)
+    {
         ItemsFlg[DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger] = true;
         DataSource->DataSet->Next();
     }
@@ -291,53 +511,45 @@ void __fastcall TDBGridAlt::CheckFiltered()
     Refresh();
 
     if (FOnChangeCheck != NULL)
+    {
         FOnChangeCheck(this);
-}
-
-//---------------------------------------------------------------------------
-// Снять пометку со всех строк
-void __fastcall TDBGridAlt::UncheckAll()
-{
-    for(int i=1; i < ItemsFlg.size(); i++) {
-        ItemsFlg[i] = false;
     }
-    Refresh();
-    if (FOnChangeCheck != NULL)
-        FOnChangeCheck(this);
 }
 
-//---------------------------------------------------------------------------
-// Подсчет количества отмеченных строк
-int __fastcall TDBGridAlt::GetCheckedCount()
+/* Задает текущий фильтр
+*/
+void __fastcall TDBGridAlt::assignFilter(TDBGridAltFilter* filter)
 {
-    int Count = 0;
-    for(int i=1; i < ItemsFlg.size(); i++) {
-        if (ItemsFlg[i])
-            Count++;
-    }
-    return Count;
+    _filter = filter;
 }
 
-//---------------------------------------------------------------------------
-// Инверсия выделения пункта
-void __fastcall TDBGridAlt::InvertCheck(int Index)
+void __fastcall TDBGridAlt::clearFilter()
 {
-    ItemsFlg[Index] = !ItemsFlg[Index];
-    if (FOnChangeCheck != NULL)
-        FOnChangeCheck(this);
+    _filter = NULL;
+    DataSource->DataSet->Filter = "";
 }
 
-//---------------------------------------------------------------------------
-// Установка ширины столбцов
-void __fastcall TDBGridAlt::SetAutosize()
+
+/* Обновляет строку фильтра в dataset
+*/
+void __fastcall TDBGridAlt::refreshFilter()
+{
+    DataSource->DataSet->Filter = _filter->getFilterString(" AND ");
+}
+
+/* Установка ширины столбцов
+*/
+void __fastcall TDBGridAlt::setAutosize()
 {
     int ScrollWidth = GetSystemMetrics(SM_CXVSCROLL);       // Ширина вертикального скроллбара
 
     // Подсчитываем ширину видимых столбцов
     int AllWidth = 0;
     int VisibleColumnsCount = 0;        // Это значение будем использовать для подсчета ширины границы между столбцами
-    for (int i = 0; i < Columns->Count; i++) {
-        if (Columns->Items[i]->Visible) {
+    for (int i = 0; i < Columns->Count; i++)
+    {
+        if (Columns->Items[i]->Visible)
+        {
             AllWidth += Columns->Items[i]->Width;
             VisibleColumnsCount++;
         }
@@ -345,88 +557,47 @@ void __fastcall TDBGridAlt::SetAutosize()
 
     float k = float(ClientWidth - ScrollWidth - VisibleColumnsCount)/AllWidth;  // Коэффициент
 
-    for (int i = 0; i < Columns->Count; i++) {
-        if (Columns->Items[i]->Visible) {
-            int r1 = Columns->Items[i]->Width;
+    for (int i = 0; i < Columns->Count; i++)
+    {
+        if (Columns->Items[i]->Visible)
+        {
+            //int r1 = Columns->Items[i]->Width;
             Columns->Items[i]->Width = ceil(Columns->Items[i]->Width * k);
         }
     }
 }
 
-//---------------------------------------------------------------------------
-//
-void TDBGridAltFilter::Add(String FilterName, String FilterStr)
-{
-    (*Items)[FilterName] = FilterStr;
-}
+
 
 //---------------------------------------------------------------------------
 //
-void TDBGridAltFilter::Delete(String FilterName)
+void __fastcall TDBGridAlt::setFiltered(bool Value)
 {
-    Items->erase(FilterName);
-}
-
-//---------------------------------------------------------------------------
-//
-void TDBGridAltFilter::Clear()
-{
-    Items->clear();
-}
-
-//---------------------------------------------------------------------------
-//
-__fastcall TDBGridAltFilter::TDBGridAltFilter()
-{
-    Items = new std::map<String, String>;
-}
-
-//---------------------------------------------------------------------------
-//
-__fastcall TDBGridAltFilter::~TDBGridAltFilter()
-{
-    Items->clear();
-    delete Items;
-}
-
-//------------------------------------------------------------------------------
-// Объединяет вектор подстрок в одну строку используя соединитель
-//String GetFilterString(const vector<String> &pieces, const String &glue = "")
-String TDBGridAltFilter::GetFilterString(const String &glue)
-{
-	String a = "";
-	int leng=Items->size();
-    if (Items->size() > 0) {
-        std::map<String, String>::iterator it = Items->begin();
-        a +=(it->second);
-        it++;
-        for (; it !=  Items->end(); it++) {
-            a+= glue + it->second;
-        }
-    }
-
- 	return a;
-}
-
-//---------------------------------------------------------------------------
-//
-void __fastcall TDBGridAlt::SetFiltered(bool Value)
-{
-    if (FFiltered != Value) {
+    if (FFiltered != Value || DataSource->DataSet->Filtered != Value)
+    {
         FFiltered = Value;
 
         if ((DataSource == NULL) || (DataSource->DataSet == NULL))
+        {
             return;
+        }
 
-        if (Value && Filter->Items->size() > 0) {
-            DataSource->DataSet->Filter = Filter->GetFilterString(" AND ");
+        if (Value && _filter)
+        {
+            refreshFilter();
+        }
+        DataSource->DataSet->Filtered = Value;
 
-        } else {
+        /*if (Value && Filter->Items->size() > 0)
+        {
+            refreshFilter();
+        }
+        else
+        {
             DataSource->DataSet->Filter = "";
             //Value = false;
             //FFiltered = false;
-        }
-        DataSource->DataSet->Filtered = Value;
+        }*/
     }
 
 
@@ -440,7 +611,6 @@ void __fastcall TDBGridAlt::SetFiltered(bool Value)
   end   */
 
 }
-
 
 
 //---------------------------------------------------------------------------

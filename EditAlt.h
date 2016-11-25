@@ -31,7 +31,7 @@ public:
     __fastcall TEditAlt(TComponent* Owner);
    bool __fastcall IsNumber(String Value, bool bFloat, bool bSign);
    int __fastcall GetValue();
-   __fastcall SetValue(int value);
+   void __fastcall SetValue(int value);
 
 
 __published:

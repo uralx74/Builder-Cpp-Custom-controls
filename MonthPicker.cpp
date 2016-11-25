@@ -32,7 +32,7 @@ namespace Monthpicker
     void __fastcall PACKAGE Register()
     {
          TComponentClass classes[1] = {__classid(TMonthPicker)};
-         RegisterComponents("Alt", classes, 0);
+         RegisterComponents("AltCtrl", classes, 0);
     }
 }
 
