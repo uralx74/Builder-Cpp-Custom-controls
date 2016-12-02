@@ -14,16 +14,27 @@ static inline void ValidCtrCheck(TMonthPicker *)
 {
     new TMonthPicker(NULL);
 }
+
 //---------------------------------------------------------------------------
 __fastcall TMonthPicker::TMonthPicker(TComponent* Owner)
-    : TPanel(Owner)
+    : TPanel(Owner),
+    _updateLockedCounter(0),
+    FEnabled(true)
 {
+    lockUpdate();
+
+    this->SetParent((TWinControl*) Owner);
     ShortDateFormat = "dd.mm.yyyy";
     DateSeparator = '.';
     this->Caption = " ";
-    Create(this);
+
+    ShowMessage("lock " + IntToStr(_updateLockedCounter));
     SetDate(Now());
-    FEnabled = true;
+    Create(this);
+
+    unlockUpdate();
+
+    refresh();
 }
 
 //---------------------------------------------------------------------------
@@ -40,6 +51,93 @@ namespace Monthpicker
 //
 __fastcall TMonthPicker::~TMonthPicker(void)
 {
+}
+
+//---------------------------------------------------------------------------
+// Обработчик кнопок выбора месяца
+void __fastcall TMonthPicker::MonthButtonClick(TObject *Sender)
+{
+    TSpeedButton* b = static_cast<TSpeedButton*>(Sender);
+    SetMonth(b->Tag + 1);
+}
+
+//---------------------------------------------------------------------------
+// Обработчик кнопок < и > для инкримента/декремента поля ГОД
+void __fastcall TMonthPicker::SpeedButtonClick(TObject *Sender)
+{
+    SetYear(FYear + ((TSpeedButton*)Sender)->Tag); 
+}
+
+//---------------------------------------------------------------------------
+// Обработчик KeyPress в поле ГОД
+void __fastcall TMonthPicker::EditKeyPress(TObject *Sender, char &Key)
+{
+    if ((Key >= '0') && (Key <= '9') || Key == VK_BACK)
+    {
+        // цифры и 'Key == '-'' - на всякий случай для отрицательных чисел,
+        //по надобности можно убрать.
+    }
+    else if (Key == 8)
+    {
+        // <-
+    }
+    else
+    {
+        Key = 0;
+    }
+
+    edit->SelLength = 1;
+}
+
+//---------------------------------------------------------------------------
+// Обработчик Ctrl-V в поле ГОД
+void __fastcall TMonthPicker::EditChange(TObject *Sender)
+{
+    if ( isUpdateLocked() )
+    {
+        return;
+    }
+
+    if (!IsNumber(edit->Text))
+    {
+        edit->Text = FYear;
+    }
+    else
+    {
+        SetYear(StrToInt(edit->Text));
+    }
+    edit->SelLength = 1;
+}
+
+//---------------------------------------------------------------------------
+// Вызов функции обработки события события
+void __fastcall TMonthPicker::sendOnChange()
+{
+    if (FOnChange != NULL)
+    {
+        FOnChange(this);
+    }
+}
+
+void TMonthPicker::lockUpdate()
+{
+    if (_updateLockedCounter < sizeof(Word) )
+    {
+        _updateLockedCounter++;
+    }
+}
+
+void TMonthPicker::unlockUpdate()
+{
+    if (_updateLockedCounter > 0 )
+    {
+        _updateLockedCounter--;
+    }
+}
+
+bool TMonthPicker::isUpdateLocked()
+{
+    return _updateLockedCounter > 0;
 }
 
 //---------------------------------------------------------------------------
@@ -97,9 +195,9 @@ void __fastcall TMonthPicker::Create(TWinControl *Owner)
     shape->Pen->Color = clSilver;
     shape->Pen->Width = 1;
 
-    for(int i=0; i<=11; i++)
+    for( int i = 0; i <= 11; i++ )
     {
-        if (i%4 == 0)
+        if ( i%4 == 0 )
         {
             top += 28;
             left = 4;
@@ -135,11 +233,12 @@ void __fastcall TMonthPicker::Create(TWinControl *Owner)
     }           
 }
 
+
 //---------------------------------------------------------------------------
 // Проверка нижней границы даты
 void __fastcall TMonthPicker::SetMinDate(const TDateTime& dt)
 {
-    unsigned short year, month, day;
+    Word year, month, day;
     dt.DecodeDate(&year, &month, &day);
     dt = EncodeDate(year, month, 1);
 
@@ -150,25 +249,25 @@ void __fastcall TMonthPicker::SetMinDate(const TDateTime& dt)
 
     FMinDate = dt;
     FixDate();
-    UpdateControl();
+    refresh();
 }
 
 //---------------------------------------------------------------------------
 // Проверка верхней границы даты
 void __fastcall TMonthPicker::SetMaxDate(const TDateTime& dt)
 {
-    unsigned short year, month, day;
+    Word year, month, day;
     dt.DecodeDate(&year, &month, &day);
     dt = IncMonth(EncodeDate(year, month, 1), 1)-1;
 
-    if (!CheckBoundMin(dt))
+    if ( !CheckBoundMin(dt) )
     {
-        throw Exception("Max date must be greater than the min date");
+        throw Exception("Max date must be greater than min date");
     }
 
     FMaxDate = dt;
     FixDate();
-    UpdateControl();
+    refresh();
 }
 
 //---------------------------------------------------------------------------
@@ -202,32 +301,39 @@ void __fastcall TMonthPicker::FixDate()
     {
         SetDate(FMaxDate);
     }
-    else if (!CheckBoundMin(seldate))
+    else if ( !CheckBoundMin(seldate) )
     {
         SetDate(FMinDate);
-    }
+    }  
 }
 
 //---------------------------------------------------------------------------
 //  Коррекция даты
 void __fastcall TMonthPicker::FixMonth()
 {
-    TDateTime seldate = GetDate();
+   TDateTime seldate = GetDate();
     // Коррекция выбранного месяца
-    if (!CheckBoundMax(seldate))
+    if ( !CheckBoundMax(seldate) )
     {
         SetMonth(FMaxDate);
     }
-    else if (!CheckBoundMin(seldate))
+    else if ( !CheckBoundMin(seldate) )
     {
         SetMonth(FMinDate);
-    }
+    }  
 }
 
 //---------------------------------------------------------------------------
 // Обновление элементов управления
-void __fastcall TMonthPicker::UpdateControl()
+void __fastcall TMonthPicker::refresh()
 {
+    ShowMessage("lock " + IntToStr(_updateLockedCounter));
+
+    if ( isUpdateLocked() )
+    {
+        return;
+    }
+
     TDateTime curyear = EncodeDate(FYear, 1, 1);
     //TDateTime seldate = GetDate();
 
@@ -238,11 +344,18 @@ void __fastcall TMonthPicker::UpdateControl()
 
     // Доступные месяцы
     TDateTime tmpdt;
-    for (unsigned short i=0; i<12; i++)
+    for ( Word i = 0; i < 12; i++ )
     {
         tmpdt = IncMonth(curyear,i);
         btnMonthsList[i]->Enabled = CheckBounds(tmpdt);
     }
+
+    // Устанавливаем выбранный месяц
+    //btnMonthsList[this->pMonth]->Font->Style = btnMonthsList[this->pMonth]->Font->Style >> fsBold;
+    //btnMonthsList[this->pMonth]->Font->Style = btnMonthsList[this->pMonth]->Font->Style << fsBold;
+    btnMonthsList[this->FMonth]->Down = true;
+    edit->Text = this->FYear;
+
 }
 
 
@@ -253,7 +366,8 @@ void __fastcall TMonthPicker::SetFEnabled(bool Value)
     FEnabled = Value;
     button1->Enabled = Value;
     button2->Enabled = Value;
-    for (unsigned short i=0; i<12; i++) {
+    for ( Word i = 0; i < 12; i++ )
+    {
         btnMonthsList[i]->Enabled = Value;
     }
     btnMonthsList[this->FMonth]->Enabled = true;
@@ -261,51 +375,38 @@ void __fastcall TMonthPicker::SetFEnabled(bool Value)
 
 //---------------------------------------------------------------------------
 // Установка года
-void __fastcall TMonthPicker::SetYear(unsigned short year)
+void __fastcall TMonthPicker::SetYear(Word year)
 {
-    edit->OnChange = NULL;
-
+    lockUpdate();
     if (year > 0 && CheckBoundMin(EncodeDate(year, 12, 31)) && CheckBoundMax(EncodeDate(year, 1, 1)))
     {
         this->FYear = year;
-        edit->Text = year;
-    }
-    else
-    {
-        edit->Text = this->FYear;
     }
 
     // Коррекция выбранного месяца
     FixMonth();
 
-    edit->OnChange = EditChange;
-    if (FOnChange != NULL)
-    {
-        FOnChange(this);
-    }
+    unlockUpdate();
 
-    UpdateControl();
+    sendOnChange();
+    refresh();
 }
 
 //---------------------------------------------------------------------------
 // Установить месяц short
-void __fastcall TMonthPicker::SetMonth(unsigned short month)
+void __fastcall TMonthPicker::SetMonth(Word month)
 {
-    //btnMonthsList[this->pMonth]->Font->Style = btnMonthsList[this->pMonth]->Font->Style >> fsBold;
-    this->FMonth = month-1;
-    //btnMonthsList[this->pMonth]->Font->Style = btnMonthsList[this->pMonth]->Font->Style << fsBold;
-    btnMonthsList[this->FMonth]->Down = true;
-    if (FOnChange != NULL)
-    {
-        FOnChange(this);
-    }
+    this->FMonth = month - 1;
+
+    sendOnChange();
+    refresh();
 }
 
 //---------------------------------------------------------------------------
 // Установить месяц из TDateTime
 void __fastcall TMonthPicker::SetMonth(const TDateTime& dt)
 {
-    unsigned short year, month, day;
+    Word year, month, day;
     dt.DecodeDate(&year, &month, &day);
     SetMonth(month - 1);
 }
@@ -314,19 +415,25 @@ void __fastcall TMonthPicker::SetMonth(const TDateTime& dt)
 // Установить год из TDateTime
 void __fastcall TMonthPicker::SetYear(const TDateTime& dt)
 {
-    unsigned short year, month, day;
+    Word year, month, day;
     dt.DecodeDate(&year, &month, &day);
     SetYear(year);
 }
 
+
 //---------------------------------------------------------------------------
 // Установить дату из TDateTime
-void __fastcall TMonthPicker::SetDate(const TDateTime& dt)
+void __fastcall TMonthPicker::SetDate(TDateTime dt)
 {
-    unsigned short year, month, day;
+    //lockUpdate();
+
+    Word year, month, day;
     dt.DecodeDate(&year, &month, &day);
     SetMonth(month);
     SetYear(year);
+
+    //unlockUpdate();
+    //refresh();
 }
 
 //---------------------------------------------------------------------------
@@ -345,74 +452,23 @@ String __fastcall TMonthPicker::GetDate(const String& format) const
 
 //---------------------------------------------------------------------------
 // Вернуть параметр Year
-unsigned short  __fastcall TMonthPicker::GetYear()
+Word  __fastcall TMonthPicker::GetYear()
 {
     return this->FYear;
 }
 
 //---------------------------------------------------------------------------
 // Вернуть параметр Month
-unsigned short __fastcall TMonthPicker::GetMonth()
+Word __fastcall TMonthPicker::GetMonth()
 {
     return this->FMonth + 1;
 }
 
 //---------------------------------------------------------------------------
 // Вернуть параметр LastDay (последний день месяца)
-unsigned short __fastcall TMonthPicker::GetLastDay()
+Word __fastcall TMonthPicker::GetLastDay()
 {
     return MonthDays[IsLeapYear(this->FYear)][this->FMonth];
-}
-
-//---------------------------------------------------------------------------
-// Обработчик кнопок выбора месяца
-void __fastcall TMonthPicker::MonthButtonClick(TObject *Sender)
-{
-    TSpeedButton* b = ((TSpeedButton*) Sender);
-    SetMonth(b->Tag + 1);
-}
-
-//---------------------------------------------------------------------------
-// Обработчик кнопок < и > для инкримента/декремента поля ГОД
-void __fastcall TMonthPicker::SpeedButtonClick(TObject *Sender)
-{
-    SetYear(FYear + ((TSpeedButton*)Sender)->Tag);
-}
-
-//---------------------------------------------------------------------------
-// Обработчик KeyPress в поле ГОД
-void __fastcall TMonthPicker::EditKeyPress(TObject *Sender, char &Key)
-{
-    if ((Key >= '0') && (Key <= '9') || Key == VK_BACK)
-    {
-        // цифры и 'Key == '-'' - на всякий случай для отрицательных чисел,
-        //по надобности можно убрать.
-    }
-    else if (Key == 8)
-    {
-        // <-
-    }
-    else
-    {
-        Key = 0;
-    }
-
-    edit->SelLength = 1;
-}
-
-//---------------------------------------------------------------------------
-// Обработчик Ctrl-V в поле ГОД
-void __fastcall TMonthPicker::EditChange(TObject *Sender)
-{
-    if (!IsNumber(edit->Text))
-    {
-        edit->Text = FYear;
-    }
-    else
-    {
-        SetYear(StrToInt(edit->Text));
-    }
-    edit->SelLength = 1;
 }
 
 //------------------------------------------------------------------------------
@@ -435,6 +491,6 @@ bool __fastcall TMonthPicker::IsNumber(const String& str) const
         }
         return false;
     }
-    return true;
+    return true;  
 }
 

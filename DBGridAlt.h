@@ -72,6 +72,8 @@ private:
     DYNAMIC void __fastcall DrawColumnCell(const TRect &Rect, int DataCol, TColumn* Column, TGridDrawState State);
     DYNAMIC void __fastcall MouseWheelHandler(TMessage &Msg);
     virtual void __fastcall LinkActive(bool Value);      //http://bendelasoft.com/_delphi/ehlib4/DBLookupGridsEh.hpp
+    //virtual void __fastcall DataChanged(void);
+
     //virtual void __fastcall Loaded();     // при создании компонента
     void __fastcall setVisibleKeyField(bool VisibleFlg);
     void __fastcall setColumnAutosize(bool ColumnAutosizeFlg);
@@ -80,6 +82,8 @@ private:
     void __fastcall setFiltered(bool Value);
     //void __fastcall ClearFilter(int Index);
     TVirtualTable* __fastcall getChecked();
+    //AnsiString _selStartBookmark;
+    //void* _selStartBookmark;
 
     String FFileName;
     TColor FOddRowColor;
@@ -90,6 +94,7 @@ private:
     std::vector<bool> ItemsFlg;
 
 
+
     int SortColumnIndex;    // Индекс колонки, по которой ведется сортировка
     int SortType;           // 0 - без, 1 - ASC, 2 - DESC
     bool FHideKeyField;     //
@@ -98,10 +103,18 @@ private:
     //int FKeyFieldIndex;     //
     AnsiString FKeyFieldName; // Имя уникального поля - значение должно быть integer
     TNotifyEvent FOnChangeCheck;
-    typedef void __fastcall (__closure *TOnDataEvent)(TObject* Sender,AnsiString &Buffer); 
-    TOnDataEvent fOnData;
+    TNotifyEvent FOnChangeFilter;
+    TDataChangeEvent FOnDataChange;
+
+    typedef void __fastcall (__closure *TOnDataEvent)(TObject* Sender,AnsiString &Buffer);
+    //TOnDataEvent fOnData;
 
     TDBGridAltFilter* _filter;
+
+    TPanel* panel;      // Панель, на которой размещаются остальные компоненты
+    TEdit* edit;        // Поле Год
+
+    
 
 
 protected:
@@ -112,7 +125,7 @@ protected:
 
 public:
     __fastcall TDBGridAlt(TComponent* Owner);
-    __fastcall TDBGridAlt::~TDBGridAlt();
+    virtual __fastcall TDBGridAlt::~TDBGridAlt();
     bool __fastcall isChecked(int RowNum);
     void __fastcall checkAll();
     void __fastcall uncheckAll();
@@ -123,6 +136,8 @@ public:
     void __fastcall invertCheck(int Index);
     void __fastcall assignFilter(TDBGridAltFilter* filter);
     void __fastcall clearFilter();
+    double __fastcall getSum(const String& fieldName, bool checked = false, bool filtered = false);
+    //int __fastcall test_01();
 
 
 
@@ -139,7 +154,10 @@ __published:
    __property TFont* CheckedFont = { read=FCheckedFont, write=FCheckedFont};
    __property int CheckedCount = { read=getCheckedCount};
    __property TNotifyEvent OnChangeCheck = {read=FOnChangeCheck, write=FOnChangeCheck};
-   __property TOnDataEvent OnData = { read=fOnData, write=fOnData };
+   __property TNotifyEvent OnChangeFilter = {read=FOnChangeFilter, write=FOnChangeFilter};
+   //__property TOnDataEvent OnData = { read=fOnData, write=fOnData };
+   //__property TDataChangeEvent OnDataChange = {read=FOnDataChange, write=FOnDataChange};
+
    __property bool Filtered = {read = FFiltered, write = setFiltered, default = false};
 
 };

@@ -22,7 +22,6 @@ namespace Dbgridalt
     }
 }
 
-
 /*
  TDBGridAltFilterItem class
 */
@@ -163,13 +162,15 @@ __fastcall TDBGridAlt::TDBGridAlt(TComponent* Owner)
     FOddRowColor = static_cast<TColor>(RGB(250,250,250));
     FEvenRowColor = clWhite;
     FSortColumnColor = static_cast<TColor>(RGB(255,240,210));
-    Options = TDBGridOptions() << dgRowSelect << dgTitles << dgRowLines << dgColLines << dgColumnResize << dgEditing << dgConfirmDelete << dgCancelOnExit << dgIndicator << dgTabs;
+    Options = TDBGridOptions() /*<< dgRowSelect*/ << dgTitles << dgRowLines << dgColLines << dgColumnResize << dgEditing << dgConfirmDelete << dgCancelOnExit << dgIndicator << dgTabs;
     FCheckedFont = new TFont();
     FCheckedFont->Color = clRed;
     FCheckedFont->Style = TFontStyles();
+
+
+    //Create(this);
     //FHideKeyField = true;
     //FColumnAutosize = true;
-
     //FKeyFieldIndex = 1;
     //Filter = new TDBGridAltFilter();
 }
@@ -212,8 +213,8 @@ void __fastcall TDBGridAlt::LinkActive(bool Value)
         }
 
         DataSource->DataSet->Filtered = FFiltered;
+        refreshFilter();
 
-        //Refresh();
         //ShowMessage( IntToStr(DataSource->DataSet->RecordCount) + " + " + IntToStr(ItemsFlg.size()) + " + " + IntToStr(ItemsFlg[0]));
     } else
     {
@@ -225,6 +226,11 @@ void __fastcall TDBGridAlt::LinkActive(bool Value)
 
     TDBGrid::LinkActive(Value);
 }
+
+/*void __fastcall TDBGridAlt::DataChanged(void)
+{
+}*/
+
 /*
 //---------------------------------------------------------------------------
 // При создании компонента
@@ -279,6 +285,14 @@ void __fastcall TDBGridAlt::KeyDown(Word &Key, Classes::TShiftState Shift)
         TDBGrid::KeyDown(VK_DOWN, Shift);
         //DataSource->DataSet->Next();
         break;
+    /*case VK_SHIFT:
+        {
+            //_selStartBookmark = DataSource->DataSet->Bookmark;
+            //DataSource->DataSet->FreeBookmark();
+            //DataSource->DataSet->GotoBookmark();
+            _selStartBookmark = DataSource->DataSet->GetBookmark();
+            break;
+        } */
     default:
         TDBGrid::KeyDown(Key, Shift);
         break;
@@ -374,23 +388,36 @@ void __fastcall TDBGridAlt::DrawColumnCell(const TRect &Rect, int DataCol, TColu
     }
 
     // Оставляем выделение текущей позиции курсора
+    //enum  { gdSelected, gdFocused, gdFixed };
+	//if  (State.Contains(gdSelected))
+    //static int curSelRecNo;
 	if  (State.Contains(gdSelected))
     {
         Canvas->Brush->Color= clHighlight;
         Canvas->Font->Color = clHighlightText;
+        //curSelRecNo = DataSource->DataSet->RecNo;
 	}
+    /*if (DataSource->DataSet->RecNo == curSelRecNo)
+    {
+        Canvas->Brush->Color= clHighlight;
+        Canvas->Font->Color = clHighlightText;
+    }*/
 
     //DataSource->DataSet->RecNo
     // Выделяем цветом помеченные строки
-    if (ItemsFlg[DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger])
     if (ItemsFlg[DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger])
     {
         Canvas->Font = FCheckedFont;
     }
     Canvas->Unlock();    // Освобождаем канвас
 
-	DefaultDrawColumnCell(Rect,DataCol,Column,State);
+	DefaultDrawColumnCell(Rect, DataCol, Column, State);
 }
+
+/*int __fastcall TDBGridAlt::test_01()
+{
+    return SelectedIndex;
+}*/
 
 //---------------------------------------------------------------------------
 // Параметр Спрятать ключевое поле
@@ -489,12 +516,10 @@ int __fastcall TDBGridAlt::getCheckedCount()
 }
 
 //---------------------------------------------------------------------------
-// Пометить все строки
-// ?????????????????????????????????????????????????????????????????????????????????
-// ?????????????????????????????????????????????????????????????????????????????????
-// ?????????????????????????????????????????????????????????????????????????????????
+// Пометить все отфильтрованные строки
 void __fastcall TDBGridAlt::checkFiltered()
 {
+    //AnsiString bookmark = DataSource->DataSet->Bookmark;
     int N = DataSource->DataSet->RecNo;
     DataSource->DataSet->DisableControls();
 
@@ -505,8 +530,8 @@ void __fastcall TDBGridAlt::checkFiltered()
         DataSource->DataSet->Next();
     }
 
-
     DataSource->DataSet->RecNo = N;
+    //DataSource->DataSet->Bookmark = bookmark;
     DataSource->DataSet->EnableControls();
     Refresh();
 
@@ -535,6 +560,11 @@ void __fastcall TDBGridAlt::clearFilter()
 void __fastcall TDBGridAlt::refreshFilter()
 {
     DataSource->DataSet->Filter = _filter->getFilterString(" AND ");
+    if (FOnChangeFilter != NULL)
+    {
+        FOnChangeFilter(this);
+    }
+
 }
 
 /* Установка ширины столбцов
@@ -568,6 +598,70 @@ void __fastcall TDBGridAlt::setAutosize()
 }
 
 
+
+
+/***************************************************************
+****************************************************************
+****************************************************************/
+
+// Сумма по столбцу всего
+double __fastcall TDBGridAlt::getSum(const String& fieldName, bool checked, bool filtered)
+{
+    //int topRow = this->TopRow;
+    //void* bookmark = DataSource->DataSet->GetBookmark();
+    //AnsiString bookmark = DataSource->DataSet->Bookmark;
+    //int MyActiveRec = DataSource->DataSet->ActiveRecord;
+
+    int N = DataSource->DataSet->RecNo;
+    DataSource->DataSet->DisableControls();
+
+    bool wasFiltered = DataSource->DataSet->Filtered;
+    DataSource->DataSet->Filtered = filtered;  // Если нужно получить все записи
+
+    DataSource->DataSet->First();
+
+    double sum = 0;
+    if (checked)
+    {
+        while(!DataSource->DataSet->Eof)
+        {
+            if (ItemsFlg[DataSource->DataSet->Fields->FieldByName(FKeyFieldName)->AsInteger])
+            {
+                sum += DataSource->DataSet->FieldByName(fieldName)->AsFloat;
+            }
+            DataSource->DataSet->Next();
+        }
+    }
+    else
+    {
+        while(!DataSource->DataSet->Eof)
+        {
+            sum += DataSource->DataSet->FieldByName(fieldName)->AsFloat;
+            DataSource->DataSet->Next();
+        }
+    }
+
+    DataSource->DataSet->Filtered = wasFiltered;
+    DataSource->DataSet->RecNo = N;
+    DataSource->DataSet->EnableControls();
+
+
+    //DataSource->DataSet->Bookmark = bookmark;
+    //DataSource->DataSet->CheckBrowseMode();
+    //DataSource->DataSet->GotoBookmark(bookmark);
+    //DataSource->DataSet->BeforeScroll();
+    //DataSource->DataSet->InternalGotoBookmark(bookmark);
+    //DataSource->DataSet->
+    //DataSource->DataSet->Resync(TResyncMode()<<rmExact);
+    //DataSource->DataSet->FreeBookmark(bookmark);
+    //this->TopRow = topRow;
+    //ScrollData();
+
+    return sum;
+}
+
+// Сумма по столбцу с учетом фильтра
+// Сумма по столбцу с учетом выделенных
 
 //---------------------------------------------------------------------------
 //

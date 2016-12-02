@@ -8,12 +8,11 @@
 //---------------------------------------------------------------------------
 // ValidCtrCheck is used to assure that the components created do not have
 // any pure virtual functions.
-//
-
 static inline void ValidCtrCheck(TEditAlt *)
 {
     new TEditAlt(NULL);
 }
+
 //---------------------------------------------------------------------------
 __fastcall TEditAlt::TEditAlt(TComponent* Owner)
     : TEdit(Owner)
@@ -22,6 +21,7 @@ __fastcall TEditAlt::TEditAlt(TComponent* Owner)
     this->Text = "0";
     TextOld = Text;
 }
+
 //---------------------------------------------------------------------------
 namespace Editalt
 {
