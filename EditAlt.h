@@ -17,8 +17,10 @@ private:
     DYNAMIC void __fastcall KeyPress(char &Key);
     DYNAMIC void __fastcall Change();
 
-    String TextOld;
-    int SelStartOld;
+    String _textOld;
+    int _selStartOld;
+    bool _changeFromCode;
+    bool FAllowNull;
 
 protected:
     bool FUseDot;      // Использовать разделитель
@@ -32,11 +34,14 @@ public:
    bool __fastcall IsNumber(String Value, bool bFloat, bool bSign);
    int __fastcall GetValue();
    void __fastcall SetValue(int value);
+   bool __fastcall IsNull();
+   void __fastcall ClearValue();
 
 
 __published:
     __property TEditDataType EditDataType = {read = FEditDataType, write = SetDataType, default = edtInteger};
-    __property int AsInteger = {read=GetValue, write=SetValue};
+    __property int Value = {read=GetValue, write=SetValue};
+    __property bool AllowNull = {read=FAllowNull, write=FAllowNull};
 
 };
 //---------------------------------------------------------------------------

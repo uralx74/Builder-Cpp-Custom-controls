@@ -28,8 +28,8 @@ __fastcall TMonthPicker::TMonthPicker(TComponent* Owner)
     DateSeparator = '.';
     this->Caption = " ";
 
-    ShowMessage("lock " + IntToStr(_updateLockedCounter));
     SetDate(Now());
+    //FDay(1);
     Create(this);
 
     unlockUpdate();
@@ -113,7 +113,7 @@ void __fastcall TMonthPicker::EditChange(TObject *Sender)
 // Вызов функции обработки события события
 void __fastcall TMonthPicker::sendOnChange()
 {
-    if (FOnChange != NULL)
+    if (FOnChange != NULL && !isUpdateLocked())
     {
         FOnChange(this);
     }
@@ -327,8 +327,6 @@ void __fastcall TMonthPicker::FixMonth()
 // Обновление элементов управления
 void __fastcall TMonthPicker::refresh()
 {
-    ShowMessage("lock " + IntToStr(_updateLockedCounter));
-
     if ( isUpdateLocked() )
     {
         return;
@@ -392,6 +390,20 @@ void __fastcall TMonthPicker::SetYear(Word year)
     refresh();
 }
 
+void __fastcall TMonthPicker::SetDay(Word day)
+{
+    Word lastDay = GetLastDay();
+    if ( day <= lastDay)
+    {
+        this->FDay = day;
+        sendOnChange();
+    }
+    else
+    {
+        throw Exception("Value must be less than " + IntToStr(lastDay));
+    }
+}
+
 //---------------------------------------------------------------------------
 // Установить месяц short
 void __fastcall TMonthPicker::SetMonth(Word month)
@@ -408,7 +420,7 @@ void __fastcall TMonthPicker::SetMonth(const TDateTime& dt)
 {
     Word year, month, day;
     dt.DecodeDate(&year, &month, &day);
-    SetMonth(month - 1);
+    SetMonth(month);
 }
 
 //---------------------------------------------------------------------------
@@ -431,6 +443,7 @@ void __fastcall TMonthPicker::SetDate(TDateTime dt)
     dt.DecodeDate(&year, &month, &day);
     SetMonth(month);
     SetYear(year);
+    SetDay(day);
 
     //unlockUpdate();
     //refresh();
@@ -464,11 +477,25 @@ Word __fastcall TMonthPicker::GetMonth()
     return this->FMonth + 1;
 }
 
+Word __fastcall TMonthPicker::GetDay()
+{
+    return this->FDay;
+}
+
 //---------------------------------------------------------------------------
 // Вернуть параметр LastDay (последний день месяца)
 Word __fastcall TMonthPicker::GetLastDay()
 {
     return MonthDays[IsLeapYear(this->FYear)][this->FMonth];
+}
+
+//---------------------------------------------------------------------------
+// Вернуть текущий день
+Word __fastcall TMonthPicker::GetCurrentDay()
+{
+    Word year, month, day;
+    Now().DecodeDate(&year, &month, &day);
+    return day;
 }
 
 //------------------------------------------------------------------------------

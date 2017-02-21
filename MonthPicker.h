@@ -12,7 +12,11 @@
  * TDateTime MaxDate - Ограничить выбор максимальной датой
  * Word Month - Воз./уст. выбранный месяц
  * Word Year - Воз./уст. выбранный год
- * Word LastDay - Возвращает последний день в выбранном месяце
+ * Word GetLastDay - Возвращает последний день в выбранном месяце
+
+ Примечание:
+ 1. Неполность реализована работа с Day
+
  */
 
 #ifndef MONTNH_PICKER_H
@@ -53,6 +57,7 @@ private:
 
 
     bool FEnabled;
+    Word FDay;
     Word FMonth; 
     Word FYear;
     TDateTime FMinDate;
@@ -65,12 +70,13 @@ private:
 
 __published:
 
-    __property TNotifyEvent OnChange = {read=FOnChange, write=FOnChange};
+    __property TNotifyEvent OnChange = {read = FOnChange, write = FOnChange};
     __property bool Enabled = {read = FEnabled, write = SetFEnabled, default=true};
     __property TDateTime Date = {read = GetDate, write = SetDate};
+    __property Word Day = {read = GetDay, write = SetDay};
     __property Word Month = {read = GetMonth, write = SetMonth};
     __property Word Year = {read = GetYear, write = SetYear};
-    __property Word LastDay = {read=GetLastDay};
+    //__property Word LastDay = {read = GetLastDay};
     __property TDateTime MinDate = {read=FMinDate, write=SetMinDate};
     __property TDateTime MaxDate = {read=FMaxDate, write=SetMaxDate};
 
@@ -82,13 +88,16 @@ public:
     void __fastcall SetYear(const TDateTime& dt);
     void __fastcall SetMonth(Word month);
     void __fastcall SetMonth(const TDateTime& dt);
+    void __fastcall SetDay(Word day);
 
-   void __fastcall SetDate(TDateTime dt);
+    void __fastcall SetDate(TDateTime dt);
     TDateTime __fastcall GetDate() const;
     String __fastcall GetDate(const String& format) const;
     Word __fastcall GetYear();
     Word __fastcall GetMonth();
+    Word __fastcall GetDay();
     Word __fastcall GetLastDay();
+    Word __fastcall GetCurrentDay();
     void __fastcall SetMinDate(const TDateTime& dt);
     void __fastcall SetMaxDate(const TDateTime& dt);
 

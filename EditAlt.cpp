@@ -15,11 +15,13 @@ static inline void ValidCtrCheck(TEditAlt *)
 
 //---------------------------------------------------------------------------
 __fastcall TEditAlt::TEditAlt(TComponent* Owner)
-    : TEdit(Owner)
+    : TEdit(Owner),
+    _changeFromCode(false)
 {
     this->SetParent((TWinControl*) Owner);
-    this->Text = "0";
-    TextOld = Text;
+    //this->Owner = this;
+    this->Text = "";
+    _textOld = Text;
 }
 
 //---------------------------------------------------------------------------
@@ -34,8 +36,7 @@ namespace Editalt
 //---------------------------------------------------------------------------
 
 
-//---------------------------------------------------------------------------
-//
+/**/
 void __fastcall TEditAlt::SetDataType(TEditDataType EditDataType)
 {
     switch (EditDataType) {
@@ -59,8 +60,7 @@ void __fastcall TEditAlt::SetDataType(TEditDataType EditDataType)
     FEditDataType = EditDataType;
 }
 
-//---------------------------------------------------------------------------
-//
+/**/
 void __fastcall TEditAlt::Change()
 {
    /*if (IsNumber(Text, FUseDot, FUseSign)) {
@@ -81,22 +81,39 @@ void __fastcall TEditAlt::Change()
         Beep();
     } */
 
+    if (_changeFromCode)
+    {
+        _changeFromCode = false;
+        return;
+    }
 
-   if (IsNumber(Text, FUseDot, FUseSign)) {
-        TextOld = Text;
-        SelStartOld = SelStart;
-    } else {
-        TNotifyEvent event = this->OnChange;
+   if (IsNumber(Text, FUseDot, FUseSign))
+   {
+        _textOld = Text;
+        _selStartOld = SelStart;
+        TEdit::OnChange(this);
+    }
+    else
+    {
+        _changeFromCode = true;
+        Text = _textOld;
+        SelStart = _selStartOld;
+
+        /*TNotifyEvent event = this->OnChange;
         this->OnChange = NULL;
-        try {
+
+        try
+        {
             Text = TextOld;
             SelStart = SelStartOld;
         }
-        __finally {
+        __finally
+        {
             this->OnChange = event;
-        }
+        }    */
         Beep();
     }
+
 
 }
 
@@ -104,7 +121,7 @@ void __fastcall TEditAlt::Change()
 //
 void __fastcall TEditAlt::KeyPress(char &Key)
 {
-    SelStartOld = this->SelStart;
+    _selStartOld = this->SelStart;
 }
 
 //---------------------------------------------------------------------------
@@ -115,24 +132,34 @@ bool __fastcall TEditAlt::IsNumber(String Value, bool bFloat, bool bSign)
     bool bSignExist = false;
     int iStart = 1;
 
-    if (bSign && n > 0) {   // Знак + или - могут быть только вначале
+    if (bSign && n > 0)    // Знак + или - могут быть только вначале
+    {
         bSignExist = Value[1] == '+' || Value[1] == '-';
     }
 
-    if (bSignExist) {   // Если был знак + или -, значит начинаем со второго символа
+    if (bSignExist)    // Если был знак + или -, значит начинаем со второго символа
+    {
         iStart = 2;
     }
 
     bool nDotExist = false;
     for (int i = iStart; i <= n; i++)   // Цикл по символам
     {
-        if (!isdigit(Value[i]) ) {
-            if (bFloat && Value[i] == DecimalSeparator) {
+        if (!isdigit(Value[i]) )
+        {
+            if (bFloat && Value[i] == DecimalSeparator)
+            {
                 if (nDotExist)       // Если ранее уже была .
+                {
                     return false;
+                }
                 else
+                {
                     nDotExist = true;
-            } else {
+                }
+            }
+            else
+            {
                 return false;
             }
         }
@@ -140,11 +167,35 @@ bool __fastcall TEditAlt::IsNumber(String Value, bool bFloat, bool bSign)
     return true;
 }
 
-int __fastcall TEditAlt::GetValue()
+/* Возвращает признак задано ли не нулевое значение */
+bool __fastcall TEditAlt::IsNull()
 {
-    return StrToInt(Text);
+    return Text == "";
 }
 
+/* Возвращает значение */
+int __fastcall TEditAlt::GetValue()
+{
+    if (FAllowNull && Text == "")
+    {
+        return 0;
+    }
+    else
+    {
+        return StrToInt(Text);
+    }
+}
+
+/* Очищает значение */
+void __fastcall TEditAlt::ClearValue()
+{
+    if (FAllowNull)
+    {
+        Text = "";
+    }
+}
+
+/* Задает значение */
 void __fastcall TEditAlt::SetValue(int value)
 {
     Text = IntToStr(value);
