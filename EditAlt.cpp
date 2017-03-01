@@ -15,13 +15,23 @@ static inline void ValidCtrCheck(TEditAlt *)
 
 //---------------------------------------------------------------------------
 __fastcall TEditAlt::TEditAlt(TComponent* Owner)
-    : TEdit(Owner),
-    _changeFromCode(false)
+    : TEdit(Owner)
 {
-    this->SetParent((TWinControl*) Owner);
-    //this->Owner = this;
-    this->Text = "";
+    this->WindowProc = MyWndProc;
+    //this->SetParent((TWinControl*) Owner);
+
+    // Notice:
+    // in time when control is in csDesigning state then
+    // not allowed use this->SelStart parameter
+    // _allowChange = !ComponentState.Contains(csDesigning);
+
+    _allowChange = false;
+    this->Text = "0";
+    _allowChange = true;
+
     _textOld = Text;
+
+    //Perform(CM_TEXTCHANGED, 0, 0);
 }
 
 //---------------------------------------------------------------------------
@@ -60,73 +70,89 @@ void __fastcall TEditAlt::SetDataType(TEditDataType EditDataType)
     FEditDataType = EditDataType;
 }
 
-/**/
-void __fastcall TEditAlt::Change()
+
+/* Перехватываем оконное сообщение */
+void __fastcall TEditAlt::MyWndProc(Messages::TMessage &Message)
 {
-   /*if (IsNumber(Text, FUseDot, FUseSign)) {
-        TextOld = Text;
-        try {
-            SelStartOld = SelStart;
-        } catch (...) {}
-    } else {
-        TNotifyEvent event = this->OnChange;
-        this->OnChange = NULL;
-        try {
-            this->Text = TextOld;
-            this->SelStart = SelStartOld;
-        }
-        __finally {
-            this->OnChange = event;
-        }
-        Beep();
-    } */
-
-    if (_changeFromCode)
+    switch (Message.Msg )
     {
-        _changeFromCode = false;
-        return;
-    }
-
-   if (IsNumber(Text, FUseDot, FUseSign))
-   {
-        _textOld = Text;
-        _selStartOld = SelStart;
-        TEdit::OnChange(this);
-    }
-    else
+    //case WM_SETTEXT:  // 12 = 0x000C
+    //{
+    //    break;
+    //}
+    /*case WM_CHAR:     // 258 = 0x0102
     {
-        _changeFromCode = true;
-        Text = _textOld;
-        SelStart = _selStartOld;
-
-        /*TNotifyEvent event = this->OnChange;
-        this->OnChange = NULL;
-
-        try
-        {
-            Text = TextOld;
-            SelStart = SelStartOld;
-        }
-        __finally
-        {
-            this->OnChange = event;
-        }    */
-        Beep();
+        break;
+    }
+    case WM_PASTE:      // 770 = 0x0302
+    {
+        break;
+    }*/
+    case WM_CHAR:     // 258 = 0x0102
+    {
+        _selStartOld = this->SelStart;
+        WndProc(Message);
     }
 
+    case CM_TEXTCHANGED:
+    {
+        if ( ComponentState.Contains(csDesigning) )
+        {                                            // Необходимо для обработки неправильных значений в режиме дизайна
+            String textTmp = this->Text.Trim();
+            if ( checkValue(textTmp) )
+            {
+                this->Text = textTmp;
+            }
+            else
+            {
+                this->Text = _textOld;
+            }
+        }
+    }
+    case CM_CHANGED:    // 45111 = 0xB037
+    {
+        if ( !_allowChange )
+        {
+            return;
+        }
 
+        String textTmp = this->Text.Trim();
+        if ( checkValue(textTmp) )
+        {
+            _textOld = textTmp;
+            _selStartOld = this->SelStart;
+
+            _allowChange = false;
+            this->Text = textTmp;
+            _allowChange = true;
+
+            this->SelStart = _selStartOld;
+            this->SelLength = 0;
+
+        }
+        else
+        {
+            _allowChange = false;
+            this->Text = _textOld;
+            _allowChange = true;
+
+            this->SelStart = _selStartOld;
+            this->SelLength = 0;
+            Beep(); 
+        }
+
+        break;
+    }
+    default:
+    {
+        WndProc(Message);
+    }
+    }
 }
 
-//---------------------------------------------------------------------------
-//
-void __fastcall TEditAlt::KeyPress(char &Key)
-{
-    _selStartOld = this->SelStart;
-}
-
-//---------------------------------------------------------------------------
-//
-bool __fastcall TEditAlt::IsNumber(String Value, bool bFloat, bool bSign)
+/*
+*/
+bool __fastcall TEditAlt::IsNumber(const String& Value, bool bFloat, bool bSign) const
 {
     int n = Value.Length();
     bool bSignExist = false;
@@ -200,3 +226,9 @@ void __fastcall TEditAlt::SetValue(int value)
 {
     Text = IntToStr(value);
 }
+
+bool TEditAlt::checkValue(const String& value) const
+{
+    return IsNumber(value, FUseDot, FUseSign);
+}
+
