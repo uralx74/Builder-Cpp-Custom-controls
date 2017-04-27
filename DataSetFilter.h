@@ -14,30 +14,37 @@
 #include <map>
 #include <Db.hpp>
 
-/*class ParamItem
+
+class TSingleFilterItem;
+
+class TParamValue
 {
 public:
-    String value;
-    String defaultValue;
-};*/
+    TParamValue();
+    Variant value;
+    Variant defaultValue;
+};
 
-class TDataSetFilterItem;
+//typedef std::map<String, Variant> TFilterParamType;
+typedef std::map<String, TParamValue> TFilterParamType;
 
-typedef std::map<String, Variant> TFilterParamType;
-typedef std::map<String, TDataSetFilterItem> TFilterItemType;
+typedef std::map<String, TSingleFilterItem> TSingleFilterList;
+typedef TSingleFilterList::iterator TSingleFilterListIterator;
 
-class TDataSetFilterItem
+class TSingleFilterItem
 {
 public:
-    __fastcall TDataSetFilterItem();
-    ~TDataSetFilterItem();
+    __fastcall TSingleFilterItem();
+    ~TSingleFilterItem();
     void setActive(bool active);
     bool isActive() const { return _active; };
     bool isEmpty() const { return _empty; };
     String getText() const;
     void addParameter(const String& paramName, const String& paramValue="");
     void setText(const String& text);
-    void resetParamValue(); // ƒл€ всех параметров
+    void resetParamValue();
+    void resetParamValue(const String& paramName);
+    void setParamDefaultValue(const String& paramName, Variant defaultValue);
     void setParamValue(const String& paramName, Variant paramValue);
     Variant getParamValue(const String& paramName);
     bool isParamExists(const String& paramName);
@@ -51,7 +58,6 @@ private:
     String _textResult; // текст после установки значени€
     TReplaceFlags _replaceFlags;
     TFilterParamType _param;
-    //std::map<String, ParamItem> _param;
 };
 
 
@@ -69,7 +75,7 @@ private:
     virtual void __fastcall DoOnChange(TDataSetFilter* Sender, String filterName = "");
 
     /* Main storage*/
-    TFilterItemType* _items;
+    TSingleFilterList* _items;
 
     /* Processing */
     String FGlue;
@@ -104,7 +110,7 @@ public:
 
 
     /*Filling the Main storage*/
-    TDataSetFilterItem* add(const String& filterName, const String& filterStr);
+    TSingleFilterItem* add(const String& filterName, const String& filterStr);
     //void add(void* filterCtrl, const String& filterStr);
     void remove(const String& filterName);
     void clear();
@@ -112,6 +118,7 @@ public:
     /**/
     String getFilterString() const;
     void setActive(const String& filterName, bool active);
+    void setDefaultValue(const String& filterName, const String& paramName, Variant paramValue);
     void setValue(const String& filterName, const String& paramName, Variant paramValue);
     Variant getValue(const String& filterName, const String& paramName) const;
     void clearValue(const String& filterName, const String& paramName);
@@ -119,7 +126,7 @@ public:
     void clearAllValues();
 
     /* Testing */
-    bool isFilterExists(const String& filterName, const String& paramName = "");
+    bool isFilterExists(const String& filterName, const String& paramName = "") const;
 
 __published:
 	//__property Classes::TNotifyEvent OnChange = {read=FOnChange, write=FOnChange};

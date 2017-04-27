@@ -166,6 +166,10 @@ void __fastcall TDBGridAlt::DblClick()
 */
 void __fastcall TDBGridAlt::setCheck(bool value)
 {
+    if ( recordCount == 0 )
+    {
+        return;
+    }
     _dataSet->Edit();
     _dataSet->FieldByName(_checkDataFieldName)->Value = (value ? CT_CHECKED : CT_UNCHECKED);
     _dataSet->Post();
@@ -304,6 +308,11 @@ void __fastcall TDBGridAlt::TitleClick(TColumn *Column)
 */
 void __fastcall TDBGridAlt::DrawColumnCell(const TRect &Rect, int DataCol, TColumn* Column, TGridDrawState State)
 {
+    if ( !this->DataLink->Active || this->recordCount == 0 ) // тест
+    {
+        return;
+    }
+
     Canvas->Lock();    // Блокирум канвас перед рисованием
 
 	// Расскрашиваем нечетные строки
@@ -455,7 +464,7 @@ void __fastcall TDBGridAlt::setCheckAll(bool value)
 */
 void __fastcall TDBGridAlt::invertCheck()
 {
-    if (!FAllowChecked)
+    if ( !FAllowChecked )
     {
         return;
     }
@@ -654,10 +663,12 @@ TSumResult __fastcall TDBGridAlt::getSum(const String& fieldName, const String& 
     //void* bookmark = DataSource->DataSet->GetBookmark();
     //AnsiString bookmark = DataSource->DataSet->Bookmark;
     //int MyActiveRec = DataSource->DataSet->ActiveRecord;
-    if (_dataSet == NULL || !_dataSet->Active)
+    if ( !this->DataLink->Active || this->recordCount == 0 /*_dataSet == NULL || !_dataSet->Active*/)
     {
         return std::pair<unsigned int, double> (0, 0);
     }
+
+    //ShowMessage(this->recordCount);
 
     _dataSet->DisableControls();
 

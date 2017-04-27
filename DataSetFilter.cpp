@@ -23,11 +23,18 @@ namespace Datasetfilter
     {
          TComponentClass classes[1] = {__classid(TDataSetFilter)};
          RegisterComponents("AltCtrl", classes, 0);
-    }
+    }  
+}
+
+TParamValue::TParamValue() :
+    value(VT_EMPTY),
+    defaultValue(VT_EMPTY)
+{
+    //
 }
 
 /**/
-__fastcall TDataSetFilterItem::TDataSetFilterItem() :
+__fastcall TSingleFilterItem::TSingleFilterItem() :
     _active(true),
     _text(""),
     //_paramValue(""),
@@ -40,36 +47,46 @@ __fastcall TDataSetFilterItem::TDataSetFilterItem() :
 
 /*
 */
-TDataSetFilterItem::~TDataSetFilterItem()
+TSingleFilterItem::~TSingleFilterItem()
 {
 }
 
 /*
 */
-void TDataSetFilterItem::setActive(bool active)
+void TSingleFilterItem::setActive(bool active)
 {
     _active = active;
 }
 
 /* Возвращает результирующий текст фильтра
 */
-String TDataSetFilterItem::getText() const
+String TSingleFilterItem::getText() const
 {
     return _textResult;
 }
 
 /* Добавляет параметр в список
 */
-void TDataSetFilterItem::addParameter(const String& paramName, const String& paramValue)
+void TSingleFilterItem::addParameter(const String& paramName, const String& paramValue)
 {
-    _param[paramName] = paramValue;
+    _param[paramName].defaultValue = paramValue;
+    _param[paramName].value = paramValue;
+}
+
+
+/* Задает значение по-умолчанию параметра, если параметр не был добавлен ранее, добавляет его
+*/
+void TSingleFilterItem::setParamDefaultValue(const String& paramName, Variant defaultValue)
+{
+    _param[paramName].defaultValue = defaultValue;
+    setParamValue(paramName, defaultValue);
 }
 
 /* Задает значение параметра, если параметр не был добавлен ранее, добавляет его
 */
-void TDataSetFilterItem::setParamValue(const String& paramName, Variant paramValue)
+void TSingleFilterItem::setParamValue(const String& paramName, Variant paramValue)
 {
-    _param[paramName] = paramValue;
+    _param[paramName].value = paramValue;
 
     // Тест исходного текста
     if (_text == "")
@@ -92,25 +109,20 @@ void TDataSetFilterItem::setParamValue(const String& paramName, Variant paramVal
 }
 
 /* Проверяет, есть ли параметр с указанным именем */
-bool TDataSetFilterItem::isParamExists(const String& paramName)
+bool TSingleFilterItem::isParamExists(const String& paramName)
 {
     TFilterParamType::iterator param = _param.find(paramName);
-
-    //Variant k = param->second;
-
-    //bool t = param == _param.end();
     return param != _param.end();
 }
-
 
 /* Тестирует список параметров на пустоту
    возращает true если хоть один параметр не задан
 */
-bool TDataSetFilterItem::isEmptyParams()
+bool TSingleFilterItem::isEmptyParams()
 {
     for (TFilterParamType::iterator it = _param.begin(); it != _param.end(); it++)
     {
-        if ( VarToStr(it->second) == "" )
+        if ( VarToStr(it->second.value) == "" )
         {
             return true;
         }
@@ -120,7 +132,7 @@ bool TDataSetFilterItem::isEmptyParams()
 }
 
 /* Обновляет итоговое значение строки */
-void TDataSetFilterItem::refreshFilterText()
+void TSingleFilterItem::refreshFilterText()
 {
     _textResult = _text;
     // Обновляем текст
@@ -130,31 +142,38 @@ void TDataSetFilterItem::refreshFilterText()
         {
             ???
         } */
-        _textResult = StringReplace(_textResult, ":" + it->first, VarToStr(it->second), _replaceFlags);
+        _textResult = StringReplace(_textResult, ":" + it->first, VarToStr(it->second.value), _replaceFlags);
     }
 }
 
 
 /**/
-Variant TDataSetFilterItem::getParamValue(const String& paramName)
+Variant TSingleFilterItem::getParamValue(const String& paramName)
 {
-    //String s = _param[paramName];
-    return _param[paramName];
+    return _param[paramName].value;
 }
 
-/*
+/* Сбрасывает значение параметров элемента подфильтра
 */
-void TDataSetFilterItem::resetParamValue()
+void TSingleFilterItem::resetParamValue(const String& paramName)
+{
+    _param[paramName].value = _param[paramName].defaultValue;
+}
+
+/* Сбрасывает значение параметров элемента подфильтра
+*/
+void TSingleFilterItem::resetParamValue()
 {
     for (TFilterParamType::iterator it = _param.begin(); it != _param.end(); it++)
     {
-        setParamValue(it->first, VT_EMPTY);
+        setParamValue(it->first, it->second.defaultValue);
+        //setParamValue(it->first, VT_EMPTY);
     }
 }
 
 /*
 */
-void TDataSetFilterItem::setText(const String& text)
+void TSingleFilterItem::setText(const String& text)
 {
     _text = text;
     // чтобы задать первоначальное значение _textResult
@@ -175,7 +194,7 @@ __fastcall TDataSetFilter::TDataSetFilter(TComponent* Owner)
     FGlue(" AND "),
     FDataSet(NULL)
 {
-    _items = new TFilterItemType;
+    _items = new TSingleFilterList;
 }
 
 /*
@@ -190,7 +209,7 @@ __fastcall TDataSetFilter::~TDataSetFilter()
 
 /* Добавляет элемент в фильтр
 */
-TDataSetFilterItem* TDataSetFilter::add(const String& filterName, const String& filterStr)
+TSingleFilterItem* TDataSetFilter::add(const String& filterName, const String& filterStr)
 {
     (*_items)[filterName].setText(filterStr);
 
@@ -236,19 +255,26 @@ void TDataSetFilter::setActive(const String& filterName, bool active)
     DoOnChange(this, filterName);
 }
 
+/* Задает значение по-умолчанию элемента фильтра
+*/
+void TDataSetFilter::setDefaultValue(const String& filterName, const String& paramName, Variant paramValue)
+{
+    if ( isFilterExists(filterName) )
+    {
+        (*_items)[filterName].setParamDefaultValue(paramName, paramValue);
+        DoOnChange(this, filterName);
+    }
+}
+
 /* Задает значение элемента фильтра
 */
 void TDataSetFilter::setValue(const String& filterName, const String& paramName, Variant paramValue)
 {
-    /*TDBGridAltFilterItem *item;
-    std::pair<const AnsiString, TDBGridAltFilterItem> *it = _items->find(filterName);
-    if ( it != _items.end() )
+    if ( isFilterExists(filterName) )
     {
-        item->setParamValue(value);
-    } */
-    //(*_items)[filterName].setParamValue(":" + paramName, paramValue);
-    (*_items)[filterName].setParamValue(paramName, paramValue);
-    DoOnChange(this, filterName);
+        (*_items)[filterName].setParamValue(paramName, paramValue);
+        DoOnChange(this, filterName);
+    }
 }
 
 /**/
@@ -286,7 +312,7 @@ Variant TDataSetFilter::getValue(const String& filterName, const String& paramNa
 */
 void TDataSetFilter::clearValue(const String& filterName, const String& paramName)
 {
-    (*_items)[filterName].setParamValue(paramName, "");
+    (*_items)[filterName].resetParamValue(paramName);
     DoOnChange(this, filterName);
 
 }
@@ -300,26 +326,25 @@ void TDataSetFilter::clearValue(const String& filterName, const String& paramNam
 }*/
 
 
-/* Очищает значение всех параметров фильтра
+/* Сбрасывает значения параметров всех подфильтров
 */
 void TDataSetFilter::clearAllValues()
 {
     // Цикл по под-фильтрам
-    for (TFilterItemType::iterator it = _items->begin(); it != _items->end(); it++)
+    for (TSingleFilterListIterator it = _items->begin(); it != _items->end(); it++)
     {
         if ( it->second.isActive() && !it->second.isEmpty())   // если фильтр активен
         {
-
             it->second.resetParamValue();
         }
     }
     DoOnChange(this);
 }
 
-/* Проверяет существует ли фильтр или параметр с заданным именим */
-bool TDataSetFilter::isFilterExists(const String& filterName, const String& paramName)
+/* Проверяет существует ли фильтр или параметр с заданным именем */
+bool TDataSetFilter::isFilterExists(const String& filterName, const String& paramName) const
 {
-    TFilterItemType::iterator item = _items->find(filterName);
+    TSingleFilterListIterator item = _items->find(filterName);
 
     if ( item == _items->end() )
     {
@@ -335,18 +360,7 @@ bool TDataSetFilter::isFilterExists(const String& filterName, const String& para
         {
             return item->second.isParamExists(paramName);
         }
-        //item->second.getParamValue()
-        //return (*_items)[filterName].getParamValue(":" + paramName);
     }
-
-    /*TDataSetFilterItem* item = &(*_items)[filterName];
-    if ((*_items)[filterName] == _items->end())
-    {
-    }
-    else
-    {
-        //_items[filterName]
-    } */
 }
 
 
@@ -357,7 +371,7 @@ String TDataSetFilter::getFilterString() const
 {
 	String a = "";
 
-    for (TFilterItemType::iterator it = _items->begin(); it != _items->end(); it++)
+    for (TSingleFilterListIterator it = _items->begin(); it != _items->end(); it++)
     {
         if ( it->second.isActive() && !it->second.isEmpty())   // если фильтр активен
         {
