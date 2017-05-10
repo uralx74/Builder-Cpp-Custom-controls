@@ -117,7 +117,11 @@ void __fastcall TDBGridAlt::LinkActive(bool Value)
     if ( Value )
     {
         _dataSet = (TOraQuery*)DataSource->DataSet;
+
+        bool old_filtered = _dataSet->Filtered;
+        _dataSet->Filtered = false;
         _recordCount = _dataSet->RecordCount;
+        _dataSet->Filtered = old_filtered;
         if ( FColumnAutosize )
         {
             setAutosize();
