@@ -27,8 +27,8 @@ namespace Datasetfilter
 }
 
 TParamValue::TParamValue() :
-    value(VT_EMPTY),
-    defaultValue(VT_EMPTY)
+    value(""),
+    defaultValue("")
 {
     //
 }
