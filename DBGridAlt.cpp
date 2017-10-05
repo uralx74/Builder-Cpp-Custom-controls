@@ -739,21 +739,11 @@ TSumResult __fastcall TDBGridAlt::getSum(const String& fieldName, const String& 
     return std::pair<unsigned int, double> (count, sum);
 }
 
-
-
-
-
-
-// Сумма по столбцу с учетом фильтра
-// Сумма по столбцу с учетом выделенных
-
-
 /* Задает поле для хранения данных об отметке записи */
 void __fastcall TDBGridAlt::SetCheckDataFieldName(const String value)
 {
     _checkDataFieldName = value;
 }
-
 
 /* Задает поля для сортировки по умолчанию */
 void __fastcall TDBGridAlt::SetDefaultSortFieldName(const String value)
@@ -764,8 +754,7 @@ void __fastcall TDBGridAlt::SetDefaultSortFieldName(const String value)
     } */
 }
 
-//------------------------------------------------------------------------------
-// Объединяет вектор подстрок в одну строку используя соединитель
+/* Объединяет вектор подстрок в одну строку используя соединитель */
 String TDBGridAlt::MergeStr(const String& s1, const String& s2, const String &glue)
 {
 

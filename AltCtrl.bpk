@@ -4,7 +4,8 @@
   <MACROS>
     <VERSION value="BCB.06.00"/>
     <PROJECT value="AltCtrl.bpl"/>
-    <OBJFILES value="AltCtrl.obj MonthPicker.obj EditAlt.obj DBGridAlt.obj DataSetFilter.obj"/>
+    <OBJFILES value="AltCtrl.obj MonthPicker.obj EditAlt.obj DBGridAlt.obj DataSetFilter.obj 
+      ComboBoxAlt.obj"/>
     <RESFILES value="AltCtrl.res"/>
     <IDLFILES value=""/>
     <IDLGENFILES value=""/>
@@ -61,6 +62,7 @@
       <FILE FILENAME="c:\program files\borland\cbuilder6\include\GroupDoc\dac60.bpi" FORMNAME="" UNITNAME="dac60" CONTAINERID="BPITool" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="c:\program files\borland\cbuilder6\include\GroupDoc\visualclx.bpi" FORMNAME="" UNITNAME="visualclx" CONTAINERID="BPITool" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="DataSetFilter.cpp" FORMNAME="" UNITNAME="DataSetFilter" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
+      <FILE FILENAME="ComboBoxAlt.cpp" FORMNAME="" UNITNAME="ComboBoxAlt" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
   </FILELIST>
   <BUILDTOOLS>
   </BUILDTOOLS>
